@@ -440,6 +440,9 @@ public:
   void set_unit_max_cpu(double cpu);
   void set_unit_min_cpu(double cpu);
   OB_INLINE int64_t total_worker_cnt() const { return total_worker_cnt_; }
+  // 预留一个 worker 到当前存活 worker 最少的 node;不适用时返回 -1 且不计数
+  int32_t pick_numa_node();
+  void release_numa_node(const int32_t node);
   int64_t cpu_quota_concurrency() const;
   int64_t min_active_worker_cnt() const;
   int64_t min_worker_cnt() const;
@@ -589,6 +592,7 @@ protected:
   // workers can make progress.
   volatile bool shrink_ CACHE_ALIGNED;
   int64_t total_worker_cnt_;
+  int32_t worker_numa_cnt_[OB_MAX_NUMA_NUM];
   int64_t total_ddl_thread_cnt_;
   void *gc_thread_;
   bool has_created_;

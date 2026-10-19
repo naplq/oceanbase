@@ -97,6 +97,9 @@ public:
   void destroy();
   virtual void run(int64_t idx);
    void set_numa_info(uint64_t tenant_id, bool enable_numa_aware, int32_t group_index);
+   // 显式钉到调用方选好的 node;未选中时不调用,回退到上面的取模分配
+   void set_pinned_numa_node(const int32_t node);
+   int32_t get_pinned_numa_node() const { return numa_info_.numa_node_; }
 
 public:
   template <class Functor>

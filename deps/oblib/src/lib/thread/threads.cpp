@@ -339,6 +339,16 @@ void Threads::set_numa_info(uint64_t tenant_id, bool enable_numa_aware, int32_t 
   }
 }
 
+void Threads::set_pinned_numa_node(const int32_t node)
+{
+  const int32_t num_nodes = AFFINITY_CTRL.get_num_nodes();
+  if (node >= 0 && node < num_nodes) {
+    numa_info_.numa_node_ = node;
+    numa_info_.num_nodes_ = num_nodes;
+    numa_info_.interleave_ = false;
+  }
+}
+
 int ObPThread::try_wait()
 {
   int ret = OB_SUCCESS;

@@ -60,8 +60,14 @@ int create_worker(ObThWorker* &worker, ObTenant *tenant, uint64_t group_id,
     worker->set_group_id_(group_id);
     worker->set_worker_level(level);
     worker->set_group(group);
-    worker->set_numa_info(tenant->id(), GCONF._enable_numa_aware, group_index);
+    const int32_t pinned_node = tenant->pick_numa_node();
+    if (pinned_node >= 0) {
+      worker->set_pinned_numa_node(pinned_node);
+    } else {
+      worker->set_numa_info(tenant->id(), GCONF._enable_numa_aware, group_index);
+    }
     if (OB_FAIL(worker->start())) {
+      tenant->release_numa_node(pinned_node);
       ob_delete(worker);
       worker = nullptr;
       LOG_ERROR("worker start failed", K(ret), K(tenant->id()), K(group_id), K(level));
@@ -80,6 +86,10 @@ int destroy_worker(ObThWorker *worker)
     LOG_ERROR("invalid argument", K(worker), K(ret));
   } else {
     auto* tenant = worker->get_tenant();
+    if (OB_NOT_NULL(tenant)) {
+      // interleave 时是 INT32_MAX、未绑时是 SHARED(16),都被 release_numa_node 的区间挡掉
+      tenant->release_numa_node(worker->get_pinned_numa_node());
+    }
     worker->stop();
     worker->wait();
     worker->destroy();

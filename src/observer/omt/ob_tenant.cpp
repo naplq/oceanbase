@@ -791,6 +791,7 @@ ObTenant::ObTenant(const int64_t id,
       tenant_meta_(),
       shrink_(0),
       total_worker_cnt_(0),
+      worker_numa_cnt_(),
       total_ddl_thread_cnt_(0),
       gc_thread_(nullptr),
       has_created_(false),
@@ -1300,6 +1301,32 @@ int64_t ObTenant::min_active_worker_cnt() const
     cnt = std::max(cnt, priority_worker_cnt() + static_cast<int64_t>(unit_max_cpu()));
   }
   return cnt;
+}
+
+int32_t ObTenant::pick_numa_node()
+{
+  int32_t node = -1;
+  const int32_t num_nodes = AFFINITY_CTRL.get_num_nodes();
+  if (GCONF._enable_numa_aware && num_nodes > 1) {
+    int32_t best = 0;
+    for (int32_t i = 1; i < num_nodes && i < OB_MAX_NUMA_NUM; i++) {
+      if (worker_numa_cnt_[i] < worker_numa_cnt_[best]) {
+        best = i;
+      }
+    }
+    (void)ATOMIC_AAF(&worker_numa_cnt_[best], 1);
+    node = best;
+  }
+  return node;
+}
+
+void ObTenant::release_numa_node(const int32_t node)
+{
+  // 守卫必须与 pick_numa_node 的前提一致,否则 num_nodes<=1 时旧取模分支会减到没加过的计数
+  const int32_t num_nodes = AFFINITY_CTRL.get_num_nodes();
+  if (GCONF._enable_numa_aware && num_nodes > 1 && node >= 0 && node < num_nodes) {
+    (void)ATOMIC_AAF(&worker_numa_cnt_[node], -1);
+  }
 }
 
 int64_t ObTenant::min_worker_cnt() const
